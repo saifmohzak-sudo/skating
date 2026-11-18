@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FROSTLINE ZERO</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;overflow:hidden;background:radial-gradient(circle at top,#0f243d,#071321 50%,#050d16);color:white;font-family:Arial,sans-serif}
+canvas{display:block}
+body.mobile-device,body.mobile-device canvas{touch-action:none}
+#menu,#podium{position:fixed;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;background:linear-gradient(130deg,#06101bee,#142744ee);backdrop-filter:blur(8px);opacity:1;transition:opacity .45s ease,transform .45s ease}
+#menu{animation:menuFade .7s ease}
+.panel{width:min(720px,95vw);max-height:95vh;overflow:auto;background:linear-gradient(180deg,#0c1b2b,#10263a);border:1px solid #54dfff66;border-radius:18px;padding:25px;box-shadow:0 0 30px rgba(0,207,255,.18),0 0 60px rgba(0,217,255,.12);text-align:center;animation:panelFloat 6s ease-in-out infinite}
+h1{font-size:clamp(32px,6vw,58px);letter-spacing:5px;color:#8deaff;margin:5px;text-shadow:0 0 18px rgba(117,239,255,.7)}
+h2{font-size:19px;margin:17px 0 10px}
+p{color:#bdd4e5}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+.choice{background:linear-gradient(180deg,#142b40,#0d1f31);color:white;border:1px solid #42627a;padding:13px 8px;border-radius:9px;font-weight:bold;cursor:pointer;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease,background .15s ease}
+.choice:hover{transform:translateY(-2px);box-shadow:0 0 16px rgba(96,228,255,.25)}
+.choice.selected{background:linear-gradient(180deg,#15516b,#0f3d4e);border:2px solid #65eaff;box-shadow:0 0 18px rgba(0,207,255,.44)}
+input{width:100%;padding:13px;margin:6px 0;background:#071522;border:1px solid #456d87;color:white;border-radius:8px;font-size:16px;transition:border-color .15s ease,box-shadow .15s ease}
+input:focus{outline:none;border-color:#7deaff;box-shadow:0 0 0 3px rgba(98,228,255,.18)}
+#start,#again{width:100%;padding:16px;margin-top:17px;background:linear-gradient(180deg,#6feaff,#42d7f4);color:#06131d;border:0;border-radius:9px;font-size:18px;font-weight:bold;cursor:pointer;box-shadow:0 0 18px rgba(109,225,255,.45);transition:transform .15s ease,box-shadow .15s ease,filter .15s ease}
+#start:hover,#again:hover{transform:translateY(-2px) scale(1.01);box-shadow:0 0 26px rgba(109,225,255,.65)}
+.small{font-size:12px;color:#91adbf}
+#hud{position:fixed;top:10px;left:10px;right:10px;z-index:4;display:flex;gap:7px;flex-wrap:wrap;pointer-events:none}
+.hudbox{background:rgba(6,21,34,.86);border:1px solid rgba(83,217,239,.45);padding:8px 11px;border-radius:8px;font-size:12px;min-width:105px;box-shadow:0 0 14px rgba(65,200,255,.18);animation:hudGlow 2.2s ease-in-out infinite alternate}
+#message{position:fixed;top:40%;left:50%;transform:translate(-50%,-50%);z-index:5;font-size:clamp(22px,4vw,42px);font-weight:bold;text-align:center;text-shadow:0 3px 12px rgba(0,0,0,.7),0 0 20px rgba(92,234,255,.4);pointer-events:none;letter-spacing:1px;animation:messagePop .5s ease-out}
+#touchControls{display:none;position:fixed;inset:auto 0 max(16px,env(safe-area-inset-bottom)) 0;z-index:6;justify-content:space-between;align-items:end;padding:0 18px;pointer-events:none;user-select:none;-webkit-user-select:none}
+.touchGroup{display:flex;align-items:end;gap:12px;pointer-events:auto}
+.touchButton{width:clamp(58px,16vw,82px);height:clamp(58px,16vw,82px);border:1px solid rgba(133,237,255,.72);border-radius:50%;background:rgba(6,25,42,.68);color:#e8fbff;font-size:26px;font-weight:bold;box-shadow:0 0 18px rgba(46,214,255,.3),inset 0 0 16px rgba(73,217,255,.12);backdrop-filter:blur(4px);touch-action:none;-webkit-tap-highlight-color:transparent}
+.touchButton:active,.touchButton.pressed{background:rgba(41,162,194,.78);transform:scale(.94);box-shadow:0 0 24px rgba(46,214,255,.6)}
+.touchButton.action{width:clamp(64px,18vw,88px);height:clamp(64px,18vw,88px);font-size:13px;letter-spacing:.5px}
+body.mobile-device #touchControls:not([hidden]){display:flex}
+body.mobile-device #modes{grid-template-columns:repeat(2,1fr)}
+body.mobile-device #modes [data-value="two"]{display:none}
+body.desktop-device #touchControls{display:none!important}
+body.desktop-device #modes [data-value="two"]{display:block}
+body.mobile-device #hud{right:7px;top:7px;gap:5px}
+body.mobile-device .hudbox{padding:6px 8px;min-width:90px;font-size:10px}
+#podium{display:none}
+.podiumRow{display:flex;align-items:end;justify-content:center;gap:12px;margin:28px 0}
+.place{width:30%;display:flex;flex-direction:column;align-items:center;animation:podiumRise .7s ease-out}
+.racerEmoji{font-size:44px;animation:happy .55s infinite alternate}
+.place.second .racerEmoji{animation:bob .8s infinite alternate}
+.place.third .racerEmoji{animation:sad .8s infinite alternate;filter:grayscale(.5)}
+.chair{width:100%;display:flex;justify-content:center;align-items:center;font-size:20px;font-weight:bold;border:2px solid #d7f8ff;border-radius:8px 8px 0 0;box-shadow:inset 0 0 18px rgba(255,255,255,.15)}
+.first .chair{height:145px;background:linear-gradient(#ffe16a,#a66c12);color:#271900}
+.second .chair{height:105px;background:linear-gradient(#d7e2ee,#6a8298);color:#101c27}
+.third .chair{height:70px;background:linear-gradient(#b77b51,#633e2d)}
+.placeName{font-weight:bold;margin:8px 0;overflow-wrap:anywhere}
+@keyframes happy{to{transform:rotate(13deg) translateY(-14px)}}
+@keyframes bob{to{transform:translateY(-7px)}}
+@keyframes sad{to{transform:rotate(-9deg) translateY(5px)}}
+@keyframes panelFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@keyframes hudGlow{0%{box-shadow:0 0 12px rgba(70,236,255,.12)}100%{box-shadow:0 0 18px rgba(70,236,255,.3)}}
+@keyframes messagePop{0%{opacity:0;transform:translate(-50%,-42%) scale(.82)}60%{opacity:1;transform:translate(-50%,-50%) scale(1.05)}100%{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+@keyframes menuFade{from{opacity:0;transform:scale(.98)}to{opacity:1;transform:scale(1)}}
+@keyframes podiumRise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:520px){.grid{grid-template-columns:repeat(2,1fr)}.panel{padding:15px}}
+</style>
+</head>
+<body>
+
+<div id="menu">
+ <div class="panel">
+  <h1>FROSTLINE ZERO</h1>
+  <p>THE MOUNTAIN IS YOURS. THE RACE IS ON.</p>
+
+  <h2>SELECT RACE MODE</h2>
+  <div class="grid" id="modes">
+   <button class="choice selected" data-value="solo">SOLO</button>
+   <button class="choice" data-value="two">2 PLAYERS</button>
+   <button class="choice" data-value="ai">RACE AGAINST AI</button>
+  </div>
+
+  <h2>SELECT LOCATION</h2>
+  <div class="grid" id="worlds">
+   <button class="choice selected" data-value="ice">ICE GLACIER</button>
+   <button class="choice" data-value="desert">DESERT CANYON</button>
+   <button class="choice" data-value="city">NEON CITY</button>
+   <button class="choice" data-value="forest">ENCHANTED FOREST</button>
+   <button class="choice" data-value="volcano">VOLCANO RUN</button>
+   <button class="choice" data-value="jungle">TROPICAL JUNGLE</button>
+   <button class="choice" data-value="sky">SKY ISLANDS</button>
+  </div>
+
+  <h2>RACER NAMES</h2>
+  <div id="names"></div>
+  <p class="small">Every race generates a different obstacle layout.</p>
+  <button id="start">START RACE</button>
+ </div>
+</div>
+
+<div id="hud"></div>
+<div id="message"></div>
+<div id="touchControls" hidden aria-label="Touch controls">
+ <div class="touchGroup" aria-label="Steering">
+  <button class="touchButton" type="button" data-key="a" aria-label="Steer left">◀</button>
+  <button class="touchButton" type="button" data-key="d" aria-label="Steer right">▶</button>
+ </div>
+ <div class="touchGroup" aria-label="Actions">
+  <button class="touchButton action" type="button" data-key="s" aria-label="Brake">BRAKE</button>
+  <button class="touchButton action" type="button" data-key="w" aria-label="Jump">JUMP</button>
+ </div>
+</div>
+
+<div id="podium">
+ <div class="panel">
+  <h1>RACE COMPLETE</h1>
+  <h2>THE WINNERS</h2>
+  <div class="podiumRow" id="podiumRow"></div>
+  <button id="again">BACK TO MENU</button>
+ </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+"use strict";
+const $=id=>document.getElementById(id);
+if(!window.THREE){
+ $("message").textContent="3D ENGINE FAILED TO LOAD. CHECK YOUR INTERNET CONNECTION.";
+ return;
+}
+
+let mode="solo",world="ice",scene,renderer,clock;
+let racers=[],obstacles=[],boosts=[],rails=[],cameras=[];
+let running=false,finishClock=0,raceLength=2200;
+let worldObjects=[],particleObjects=[];
+const keys={};
+const mobileDevice=/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
+ ||(/MacIntel/.test(navigator.platform)&&navigator.maxTouchPoints>1);
+document.body.classList.add(mobileDevice?"mobile-device":"desktop-device");
+const AI_NAMES=["NOVA","BLAZE","SHADOW","COMET","RANGER","FROST"];
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const rand=(a,b)=>a+Math.random()*(b-a);
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+
+const palettes={
+ ice:{sky:0x91c9e8,fog:0x9bc9df,track:0xd8f2fa,accent:0x36eaff,ground:0x334c65,rock:0x789bad},
+ desert:{sky:0xe9a66a,fog:0xe6a66e,track:0xc79b66,accent:0xffdf77,ground:0x523d31,rock:0x9a6948},
+ city:{sky:0x080d25,fog:0x101b40,track:0x1c2b4c,accent:0x30edff,ground:0x090d1c,rock:0x182548},
+ forest:{sky:0x9acb9a,fog:0x8dbb91,track:0x9ebd8a,accent:0x7dffb1,ground:0x253e2d,rock:0x47634b},
+ volcano:{sky:0x391b27,fog:0x572c30,track:0x45434b,accent:0xff7a32,ground:0x17151b,rock:0x514047},
+ jungle:{sky:0x78c4a0,fog:0x75b997,track:0x8cbd85,accent:0xffed68,ground:0x23442d,rock:0x54784a},
+ sky:{sky:0x72b9ed,fog:0x94c9ef,track:0xe5f5ff,accent:0xffe66d,ground:0x36577e,rock:0x9ac5e2}
+};
+
+function mat(color,rough=.8,metal=0,emissive=0){
+ return new THREE.MeshStandardMaterial({color,roughness:rough,metalness:metal,emissive,emissiveIntensity:.45});
+}
+function box(parent,x,y,z,sx,sy,sz,material){
+ const m=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz),material);
+ m.position.set(x,y,z);parent.add(m);return m;
+}
+function cylinder(parent,x,y,z,r,h,material,segments=8){
+ const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,segments),material);
+ m.position.set(x,y,z);parent.add(m);return m;
+}
+function spriteLabel(text,color="#ffffff"){
+ const canvas=document.createElement("canvas");canvas.width=512;canvas.height=128;
+ const ctx=canvas.getContext("2d");
+ ctx.fillStyle="rgba(0,0,0,.5)";ctx.fillRect(0,0,512,128);
+ ctx.font="bold 54px Arial";ctx.textAlign="center";ctx.fillStyle=color;
+ ctx.fillText(text,256,83);
+ const texture=new THREE.CanvasTexture(canvas);
+ const s=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,transparent:true}));
+ s.scale.set(11,2.8,1);return s;
+}
+
+function setupChoices(){
+ if(mobileDevice)$("modes").querySelector('[data-value="two"]').classList.remove("selected");
+ document.querySelectorAll("#modes .choice").forEach(b=>b.onclick=()=>{
+  if(mobileDevice&&b.dataset.value==="two")return;
+  document.querySelectorAll("#modes .choice").forEach(x=>x.classList.remove("selected"));
+  b.classList.add("selected");mode=b.dataset.value;makeNameFields();
+ });
+ document.querySelectorAll("#worlds .choice").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll("#worlds .choice").forEach(x=>x.classList.remove("selected"));
+  b.classList.add("selected");world=b.dataset.value;
+ });
+ makeNameFields();
+}
+function makeNameFields(){
+ $("names").innerHTML="";
+ const count=mode==="two"?2:1;
+ for(let i=0;i<count;i++){
+  const input=document.createElement("input");
+  input.id="name"+i;input.maxLength=15;
+  input.placeholder=mode==="two"?"Player "+(i+1)+" name":"Your name";
+  input.value=mode==="two"?"PLAYER "+(i+1):"RIDER";
+  $("names").appendChild(input);
+ }
+}
+function setupTouchControls(){
+  $("touchControls").querySelectorAll("[data-key]").forEach(button=>{
+   const release=()=>{
+    keys[button.dataset.key]=false;
+    button.classList.remove("pressed");
+   };
+   button.addEventListener("pointerdown",event=>{
+    event.preventDefault();
+    keys[button.dataset.key]=true;
+    button.classList.add("pressed");
+    button.setPointerCapture(event.pointerId);
+   });
+   button.addEventListener("pointerup",release);
+   button.addEventListener("pointercancel",release);
+   button.addEventListener("lostpointercapture",release);
+  });
+}
+setupChoices();
+setupTouchControls();
+
+$("start").onclick=()=>{
+ const names=[];
+ for(let i=0;i<(mode==="two"?2:1);i++)names.push($("name"+i).value.trim()||"RIDER "+(i+1));
+ startGame(names);
+};
+$("again").onclick=()=>{
+ running=false;
+ $("podium").style.display="none";
+ $("menu").style.display="flex";
+ $("hud").innerHTML="";
+ $("message").textContent="";
+ $("touchControls").hidden=true;
+};
+
+function buildScene(){
+ const c=palettes[world];
+ scene=new THREE.Scene();
+ scene.background=new THREE.Color(c.sky);
+ scene.fog=new THREE.Fog(c.fog,100,550);
+ scene.add(new THREE.HemisphereLight(0xffffff,0x46505b,1.5));
+ const sun=new THREE.DirectionalLight(0xffffff,1.5);
+ sun.position.set(-30,60,30);scene.add(sun);
+
+ const terrain=new THREE.Group();scene.add(terrain);
+ // The valley floor is far below the track.
+ box(terrain,0,-27,-1100,250,2,2500,mat(c.ground));
+ const track=new THREE.Group();scene.add(track);
+
+ const edge=mat(c.accent,.3,.6,c.accent);
+ const road=mat(c.track,.7,.1);
+ // Track sections leave actual open gaps.
+ const gapList=[];
+ for(let d=0;d<raceLength;d+=10){
+  if(gapList.some(g=>Math.abs(d-g)<17))continue;
+  box(track,0,-.28,-d,19,.55,10,road);
+ }
+ box(track,-9.7,.15,-1100,.35,.35,2200,edge);
+ box(track,9.7,.15,-1100,.35,.35,2200,edge);
+
+ const line=mat(world==="city"?0xff40df:0xffffff,.35,.3,world==="city"?0xff40df:0x334455);
+ for(let d=0;d<raceLength;d+=19){
+  box(track,-3.1,.015,-d,.1,.04,8,line);
+  box(track,3.1,.015,-d,.1,.04,8,line);
+ }
+ // Random scenery
+ for(let i=0;i<180;i++){
+  const z=-rand(15,raceLength+80),side=Math.random()<.5?-1:1;
+  const x=side*rand(18,55);
+  if(world==="city"){
+   const h=rand(10,52),w=rand(5,12);
+   const building=box(terrain,x,h/2-1,z,w,h,rand(7,13),mat(pick([0x172847,0x24244d,0x263b57]),.5,.2));
+   for(let y=4;y<h;y+=6){
+    box(terrain,x+side*(w/2+.04),y,z,.08,.4,rand(2,5),edge);
+   }
+  }else if(world==="forest"||world==="jungle"){
+   const trunk=cylinder(terrain,x,2,z,rand(.4,.9),4,mat(world==="forest"?0x55402d:0x60442b),7);
+   const crown=new THREE.Mesh(new THREE.ConeGeometry(rand(2,4),rand(5,10),7),mat(world==="forest"?0x276b45:0x16734d));
+   crown.position.set(x,rand(5,8),z);terrain.add(crown);
+   if(world==="jungle"&&Math.random()<.4){
+    const leaf=box(terrain,x+side*2,rand(3,6),z,5,.25,.25,mat(0x52a94e));
+    leaf.rotation.z=rand(-.5,.5);
+   }
+  }else{
+   const h=rand(12,42),w=rand(8,24);
+   const mountain=new THREE.Mesh(new THREE.ConeGeometry(w,h,6),mat(c.rock));
+   mountain.position.set(x,h/2-5,z);mountain.rotation.y=rand(0,6);terrain.add(mountain);
+  }
+ }
+ // Special location details
+ if(world==="volcano"){
+  for(let i=0;i<18;i++){
+   const z=-rand(40,raceLength),side=Math.random()<.5?-1:1;
+   const lava=box(terrain,side*rand(15,28),-3,z,rand(2,5),.3,rand(8,20),mat(0xff4b16,.3,.1,0xff3000));
+  }
+ }
+ if(world==="sky"){
+  for(let i=0;i<35;i++){
+   const cloud=new THREE.Mesh(new THREE.SphereGeometry(rand(3,8),8,7),mat(0xffffff));
+   cloud.position.set(rand(-60,60),rand(15,55),-rand(30,raceLength));terrain.add(cloud);
+  }
+ }
+ // Start and finish gates
+ const gateMat=mat(c.accent,.3,.5,c.accent);
+ for(const [d,label] of [[-18,"START"],[-raceLength,"FINISH"]]){
+  box(terrain,0,5,d,20,.45,.7,gateMat);
+  box(terrain,-9,2.5,d,.45,5,.7,gateMat);
+  box(terrain,9,2.5,d,.45,5,.7,gateMat);
+  const s=spriteLabel(label);s.position.set(0,6.5,d);terrain.add(s);
+ }
+ // Checkpoint arches
+ for(const d of [500,1000,1500]){
+  box(terrain,0,4,-d,19,.25,.35,gateMat);
+  box(terrain,-9,2,-d,.25,4,.35,gateMat);
+  box(terrain,9,2,-d,.25,4,.35,gateMat);
+  const s=spriteLabel("CHECKPOINT");s.scale.set(7,1.7,1);s.position.set(0,5.4,-d);terrain.add(s);
+ }
+
+ buildCourse(track,terrain);
+}
+
+function buildCourse(track,terrain){
+ obstacles=[];boosts=[];rails=[];
+ const c=palettes[world];
+ const hazard=mat(world==="volcano"?0xff542c:0xf05a52,.4,.2);
+ const metal=mat(0x9ab4c5,.25,.9);
+ const glow=mat(c.accent,.25,.6,c.accent);
+ const challengePools={
+  ice:["ice","rock","gate","slalom","ramp"],
+  desert:["rock","wall","ramp","moving","slalom"],
+  city:["moving","spinner","gate","ramp","wall"],
+  forest:["log","slalom","rock","moving","ramp"],
+  volcano:["rock","spinner","moving","wall","ramp"],
+  jungle:["log","slalom","moving","rock","ramp"],
+  sky:["spinner","moving","ramp","gate","wall"]
+ };
+ const gapWorlds=["ice","volcano","sky"];
+
+ // New randomized gap positions on every race.
+ const gaps=[];
+ for(let d=rand(270,360);gapWorlds.includes(world)&&d<raceLength-120;d+=rand(world==="sky"?250:300,world==="sky"?340:390)){
+  gaps.push(d);
+  // Dark bottom and bright edge markers.
+  box(terrain,0,-25,-d,20,.5,28,mat(0x02050a));
+  for(let side of [-1,1]){
+   box(track,side*9.4,.1,-d,1,.25,28,glow);
+  }
+  // A jump ramp before each gap.
+  const ramp=box(track,0,.35,-(d-22),7,.65,8,mat(0xbceaff,.4,.2));
+  ramp.rotation.x=-.13;
+  obstacles.push({type:"ramp",x:0,d:d-22,mesh:ramp});
+  obstacles.push({type:"gap",x:0,d});
+ }
+
+ // Randomized obstacle placements.
+ const types=challengePools[world];
+ for(let d=90;d<raceLength-65;d+=rand(25,39)){
+  if(gaps.some(g=>Math.abs(g-d)<38))continue;
+  const type=pick(types);
+  const x=rand(-5.8,5.8);
+  if(type==="gate"){
+   const group=new THREE.Group();group.position.z=-d;track.add(group);
+   const left=box(group,-5,1,0,7,2,1,hazard);
+   const right=box(group,5,1,0,7,2,1,hazard);
+   obstacles.push({type,x:0,d,group,left,right,phase:rand(0,6)});
+  }else if(type==="slalom"){
+   for(let side of [-1,1]){
+    const px=side*rand(3.5,6);
+    const pole=cylinder(track,px,1,-d,.24,2,hazard,8);
+    const flag=box(track,px+.5,1.6,-d,.8,.5,.1,glow);
+    obstacles.push({type:"pole",x:px,d,mesh:pole});
+   }
+  }else if(type==="rock"){
+   const rock=new THREE.Mesh(new THREE.DodecahedronGeometry(rand(.9,1.6),0),hazard);
+   rock.position.set(x,1,-d);track.add(rock);
+   obstacles.push({type:"rock",x,d,mesh:rock});
+  }else if(type==="moving"){
+   const mesh=box(track,x,1,-d,3,2,1,hazard);
+   obstacles.push({type:"moving",x,d,mesh,phase:rand(0,6)});
+  }else if(type==="ramp"){
+   const ramp=box(track,x,.35,-d,5,.65,8,glow);
+   ramp.rotation.x=-.15;
+   obstacles.push({type:"ramp",x,d,mesh:ramp});
+  }else if(type==="ice"){
+   const slick=box(track,x,.015,-d,6,.04,13,mat(0x9ceeff,.15,.4));
+   obstacles.push({type:"ice",x,d,mesh:slick});
+  }else if(type==="wall"){
+   const mesh=box(track,x,1.2,-d,4,2.4,1.2,hazard);
+   obstacles.push({type:"wall",x,d,mesh});
+  }else if(type==="log"){
+   const mesh=cylinder(track,x,1,-d,.65,4,metal,10);
+   mesh.rotation.z=Math.PI/2;
+   obstacles.push({type:"log",x,d,mesh});
+  }else if(type==="spinner"){
+   const group=new THREE.Group();group.position.set(x,1.5,-d);track.add(group);
+   const beam=box(group,0,0,0,7,.25,.4,glow);
+   obstacles.push({type:"spinner",x,d,group,beam});
+  }
+ }
+
+ // Boost arrows, with randomized lanes and spacing.
+ for(let d=rand(55,100);d<raceLength-50;d+=rand(90,150)){
+  const x=pick([-5,0,5]);
+  const group=new THREE.Group();group.position.set(x,.06,-d);track.add(group);
+  const shape=new THREE.Shape();
+  shape.moveTo(-1,-1.3);shape.lineTo(1,-1.3);shape.lineTo(1,.2);
+  shape.lineTo(1.8,.2);shape.lineTo(0,1.7);shape.lineTo(-1.8,.2);shape.lineTo(-1,.2);shape.closePath();
+  const arrow=new THREE.Mesh(new THREE.ShapeGeometry(shape),new THREE.MeshBasicMaterial({color:c.accent,side:THREE.DoubleSide}));
+  arrow.rotation.x=-Math.PI/2;group.add(arrow);
+  boosts.push({x,d,group});
+ }
+
+ // Grind rails placed at changing positions.
+ for(let d=rand(160,230);d<raceLength-80;d+=rand(220,300)){
+  const x=pick([-6,6]);
+  const rail=box(track,x,.55,-d,1, .35,23,metal);
+  box(track,x,.76,-d,1.05,.08,23,glow);
+  for(let z=-d-10;z<-d+11;z+=5)cylinder(track,x,.2,z,.15,.6,metal,6);
+  rails.push({x,d,mesh:rail});
+ }
+}
+
+function makeRider(name,index,isAI){
+ const root=new THREE.Group();
+ const suitColors=[0xff543e,0x31bfff,0xffd044,0xa17aff];
+ const boardStyles={
+  ice:{base:0x173b58,deck:0xc9f6ff,trim:0x31eaff},
+  desert:{base:0x51341f,deck:0xf2bd62,trim:0xff6d3a},
+  city:{base:0x171b43,deck:0xf044d6,trim:0x39f6ff},
+  forest:{base:0x24432e,deck:0x9acb74,trim:0xf1d17a},
+  volcano:{base:0x34242a,deck:0xff612f,trim:0xffd34d},
+  jungle:{base:0x164537,deck:0x42c878,trim:0xffe65d},
+  sky:{base:0x344c7b,deck:0xf5fbff,trim:0xffd950}
+ };
+ const boardStyle=boardStyles[world];
+ const suit=mat(suitColors[index%4],.4,.15);
+ const dark=mat(0x17283a,.3,.6);
+ const skin=mat(0xf0bd91);
+ const boardMat=mat(boardStyle.base,.25,.7);
+ // Snowboard
+ const board=box(root,0,.22,0,1.05,.17,3.3,boardMat);
+ box(root,0,.315,0,.78,.035,2.85,mat(boardStyle.deck,.3,.25));
+ for(const side of [-1,1]){
+  box(root,side*.27,.34,0,.09,.025,2.5,mat(boardStyle.trim,.25,.45,boardStyle.trim));
+ }
+ box(root,0,.345,-.92,.48,.025,.18,mat(boardStyle.trim,.25,.4,boardStyle.trim));
+ box(root,0,.345,.92,.48,.025,.18,mat(boardStyle.trim,.25,.4,boardStyle.trim));
+ // Boots
+ for(const z of [-.8,.8]){
+  box(root,0,.43,z,.55,.28,.55,dark);
+  box(root,0,.32,z,.8,.08,.7,mat(0x263849,.2,.8));
+ }
+ // Legs and body
+ const leg1=box(root,-.22,.85,-.25,.28,.8,.3,suit);
+ const leg2=box(root,.22,.85,.35,.28,.8,.3,suit);
+ const body=box(root,0,1.55,0,.85,1.05,.5,suit);
+ const head=new THREE.Mesh(new THREE.SphereGeometry(.37,16,12),skin);
+ head.position.set(0,2.35,0);root.add(head);
+ const helmet=new THREE.Mesh(new THREE.SphereGeometry(.4,16,10,0,Math.PI*2,0,Math.PI/2),dark);
+ helmet.position.set(0,2.44,0);root.add(helmet);
+ const arms=[];
+ for(let side of [-1,1]){
+  const pivot=new THREE.Group();pivot.position.set(side*.48,1.9,0);root.add(pivot);
+  box(pivot,side*.1,-.4,0,.23,.85,.23,suit);
+  const hand=new THREE.Mesh(new THREE.SphereGeometry(.14,8,8),skin);
+  hand.position.set(side*.1,-.83,0);pivot.add(hand);arms.push(pivot);
+ }
+ const tag=spriteLabel(name);tag.position.set(0,3.5,0);tag.scale.set(5,1.2,1);root.add(tag);
+ scene.add(root);
+ return {name,index,isAI,root,board,body,arms,leg1,leg2,
+  x:(index%2===0?-2:2),y:0,progress:0,speed:0,checkpoint:0,checkpointIndex:0,
+  jumpTime:0,air:0,crashed:0,finished:false,place:0,boost:0,grind:0,ice:0,
+  steer:0,jumpHeld:false,boostUsed:new Set(),aiPhase:rand(0,10),lastX:0};
+}
+
+function setupRacers(names){
+ racers=[];
+ if(mode==="solo")racers.push(makeRider(names[0],0,false));
+ if(mode==="two"){
+  racers.push(makeRider(names[0],0,false));
+  racers.push(makeRider(names[1],1,false));
+ }
+ if(mode==="ai"){
+  racers.push(makeRider(names[0],0,false));
+  for(let i=1;i<=3;i++)racers.push(makeRider(AI_NAMES[i-1],i,true));
+ }
+ racers.forEach((p,i)=>p.x=(i-(racers.length-1)/2)*2.4);
+}
+
+function controls(p){
+ if(p.isAI)return aiControls(p);
+ if(p.index===0)return {steer:(keys.a?-1:0)+(keys.d?1:0),jump:!!keys.w,brake:!!keys.s};
+ return {steer:(keys.ArrowLeft?-1:0)+(keys.ArrowRight?1:0),jump:!!keys.ArrowUp,brake:!!keys.ArrowDown};
+}
+function aiControls(p){
+ const z=p.progress;
+ let target=Math.sin(z*.008+p.aiPhase)*5;
+ let danger=obstacles.filter(o=>o.d>z&&o.d-z<27).sort((a,b)=>a.d-b.d)[0];
+ let jump=false,brake=false;
+ if(danger){
+  if(danger.type==="gap"||danger.type==="wall"||danger.type==="gate"||danger.type==="moving"){
+   target=danger.x>0?-5:5;
+   if(danger.type==="gap"&&danger.d-z<26)jump=true;
+   if(danger.type==="gate"&&danger.d-z<12)brake=true;
+  }else if(danger.type==="rock"||danger.type==="pole"||danger.type==="log"){
+   target=danger.x>0?-5:5;
+   if(danger.d-z<8)jump=true;
+  }
+ }
+ const steer=clamp((target-p.x)*.65,-1,1);
+ if(p.speed>43)brake=Math.random()<.02;
+ return {steer,jump,brake};
+}
+
+function makeBurst(p,color){
+ for(let i=0;i<9;i++){
+  const m=new THREE.Mesh(new THREE.SphereGeometry(.075,5,5),new THREE.MeshBasicMaterial({color}));
+  m.position.set(p.x+rand(-.7,.7),.5+rand(0,1),-p.progress+rand(-1,1));
+  scene.add(m);
+  particleObjects.push({mesh:m,life:.5,vx:rand(-3,3),vy:rand(1,5),vz:rand(-3,3)});
+ }
+}
+function updateParticles(dt){
+ for(let i=particleObjects.length-1;i>=0;i--){
+  const p=particleObjects[i];p.life-=dt;
+  p.mesh.position.x+=p.vx*dt;p.mesh.position.y+=p.vy*dt;p.mesh.position.z+=p.vz*dt;
+  if(p.life<=0){scene.remove(p.mesh);p.mesh.geometry.dispose();p.mesh.material.dispose();particleObjects.splice(i,1)}
+ }
+}
+
+function crash(p){
+ if(p.crashed>0||p.finished)return;
+ p.crashed=1.35;p.speed=0;p.air=0;p.grind=0;
+ p.progress=p.checkpoint;p.x=clamp(p.x,-5,5);
+ p.root.visible=false;makeBurst(p,0xff684f);
+}
+
+function updateRacer(p,dt){
+ if(p.finished)return;
+ if(p.crashed>0){
+  p.crashed-=dt;
+  if(p.crashed<=0){
+   p.root.visible=true;p.root.position.set(p.x,0,-p.progress);p.speed=13;
+   p.root.rotation.set(0,0,0);
+  }
+  return;
+ }
+ const c=controls(p);
+ p.steer=clamp(c.steer,-1,1);
+ p.speed+=( (c.brake?13:35)-p.speed)*dt*(c.brake?3:1.4);
+ if(p.boost>0){p.speed+=18*dt;p.boost-=dt}
+ if(p.grind>0){p.speed+=13*dt;p.grind-=dt}
+ p.speed=clamp(p.speed,0,55);
+
+ const steerPower=p.ice>0?7:13;
+ p.x+=p.steer*steerPower*dt*(p.speed/35);
+ p.x=clamp(p.x,-8.3,8.3);
+ if(p.ice>0)p.ice-=dt;
+
+ if(c.jump&&!p.jumpHeld&&p.air<=0){
+  p.air=1.15;p.jumpTime=0;makeBurst(p,0xc4f3ff);
+ }
+ p.jumpHeld=c.jump;
+ let height=0;
+ if(p.air>0){
+  p.jumpTime+=dt;p.air-=dt;
+  height=Math.sin(clamp(p.jumpTime/1.15,0,1)*Math.PI)*3.5;
+ }
+ p.progress+=p.speed*dt;
+
+ // Individual checkpoints.
+ [500,1000,1500].forEach((cp,i)=>{
+  if(p.progress>=cp&&p.checkpointIndex<=i){
+   p.checkpoint=cp;p.checkpointIndex=i+1;
+   makeBurst(p,0x38eaff);
+   $("message").textContent=p.name+" CHECKPOINT "+(i+1);
+  }
+ });
+
+ // Boost pads.
+ for(const b of boosts){
+  if(Math.abs(p.progress-b.d)<5&&Math.abs(p.x-b.x)<2.1&&!p.boostUsed.has(b.d)){
+   p.boostUsed.add(b.d);p.boost=2.1;makeBurst(p,0x31eaff);
+  }
+ }
+
+ // Grinding: snap the board onto the rail and produce sparks.
+ for(const r of rails){
+  if(Math.abs(p.progress-r.d)<10&&Math.abs(p.x-r.x)<1.5&&p.air<=0&&p.grind<=0){
+   p.x=r.x;p.grind=1.1;p.boost=Math.max(p.boost,.5);makeBurst(p,0xffdc65);
+  }
+ }
+ if(p.grind>0&&Math.random()<.35)makeBurst(p,0xffd45a);
+
+ // Ice zones.
+ for(const o of obstacles){
+  if(o.type==="ice"&&Math.abs(p.progress-o.d)<8&&Math.abs(p.x-o.x)<3)p.ice=.6;
+ }
+ // Ramps.
+ for(const o of obstacles){
+  if(o.type==="ramp"&&Math.abs(p.progress-o.d)<3&&Math.abs(p.x-o.x)<4&&p.air<=0){
+   p.air=1.1;p.jumpTime=0;makeBurst(p,0xc4f3ff);
+  }
+ }
+
+ // Hazards.
+ for(const o of obstacles){
+  if(Math.abs(p.progress-o.d)>2.5)continue;
+  if(o.type==="gap"&&p.air<=0){crash(p);break}
+  if(o.type==="pole"&&Math.abs(p.x-o.x)<.8){crash(p);break}
+  if(o.type==="rock"&&Math.abs(p.x-o.x)<1.7&&height<1.5){crash(p);break}
+  if(o.type==="wall"&&Math.abs(p.x-o.x)<2.7&&height<2){crash(p);break}
+  if(o.type==="log"&&Math.abs(p.x-o.x)<1.8&&height<1.5){crash(p);break}
+  if(o.type==="moving"&&Math.abs(p.x-o.mesh.position.x)<2&&height<2){crash(p);break}
+  if(o.type==="gate"){
+   const opening=Math.sin(p.progress*.015+o.phase)*3;
+   if(Math.abs(p.x-opening)>2.3&&height<2){crash(p);break}
+  }
+  if(o.type==="spinner"&&Math.abs(p.x-o.x)<3&&height<2){crash(p);break}
+ }
+ if(Math.abs(p.x)>8.4){crash(p);return}
+
+ const rhythm=Math.sin(p.progress*.15+p.aiPhase)*.7;
+ const boardLift=(p.grind>0?0.6:0)+(p.air>0?0.15:0);
+ p.root.position.set(p.x,height+boardLift,-p.progress);
+ p.root.rotation.z=-p.steer*.28;
+ p.root.rotation.x=p.air>0?-.28:0;
+ p.root.rotation.y=p.steer*.18;
+ p.board.rotation.z=-p.steer*.35;
+ p.body.rotation.z=-p.steer*.18;
+ p.arms[0].rotation.z=-.75-p.steer*.45+rhythm*.15;
+ p.arms[0].rotation.x=-.25+rhythm*.25;
+ p.arms[1].rotation.z=.75-p.steer*.45-rhythm*.15;
+ p.arms[1].rotation.x=.25-rhythm*.25;
+ p.leg1.rotation.x=p.air>0?-.35:rhythm*.3;
+ p.leg2.rotation.x=p.air>0?.35:-rhythm*.3;
+ p.leg1.rotation.z=-.18-p.steer*.12;
+ p.leg2.rotation.z=.18-p.steer*.12;
+
+ if(p.progress>=raceLength){
+  p.progress=raceLength;p.finished=true;p.speed=0;
+  p.place=racers.filter(r=>r.finished).length;
+  p.root.position.set(p.x,.2,-raceLength);
+  makeBurst(p,0xffdf70);
+ }
+}
+
+function updateWorld(t){
+ for(const o of obstacles){
+  if(o.type==="gate"){
+   const center=Math.sin(t*.0015+o.phase)*3;
+   o.left.position.x=center-5;o.right.position.x=center+5;
+  }
+  if(o.type==="moving")o.mesh.position.x=o.x+Math.sin(t*.0018+o.phase)*4;
+  if(o.type==="spinner")o.group.rotation.y=t*.002;
+ }
+}
+
+function setupRenderer(){
+ if(renderer){renderer.dispose();renderer.domElement.remove()}
+ renderer=new THREE.WebGLRenderer({antialias:true});
+ renderer.setPixelRatio(Math.min(devicePixelRatio,1.6));
+ renderer.setSize(innerWidth,innerHeight);
+ renderer.shadowMap.enabled=true;
+ document.body.appendChild(renderer.domElement);
+ cameras=racers.map(()=>new THREE.PerspectiveCamera(68,1,.1,900));
+}
+
+function renderViews(){
+ const w=innerWidth,h=innerHeight;
+ renderer.setScissorTest(true);
+ const t=performance.now()*0.001;
+ if(mode==="two"){
+  const half=Math.floor(w/2);
+  for(let i=0;i<2;i++){
+   const p=racers[i],cam=cameras[i],x=i*half;
+   cam.aspect=half/h;cam.updateProjectionMatrix();
+   const desiredX=p.x+(p.steer||0)*2+Math.sin(t*1.5+i)*.6;
+   const desiredY=7.8+Math.sin(t*1.4+i)*.45;
+   const desiredZ=-p.progress+15.5+Math.abs(p.steer)*1.5;
+   cam.position.x+=(desiredX-cam.position.x)*.08;
+   cam.position.y+=(desiredY-cam.position.y)*.08;
+   cam.position.z+=(desiredZ-cam.position.z)*.08;
+   cam.lookAt(p.x,1.2,-p.progress-15);
+   renderer.setViewport(x,0,half,h);renderer.setScissor(x,0,half,h);
+   renderer.render(scene,cam);
+  }
+ }else{
+  const p=racers[0],cam=cameras[0];
+  cam.aspect=w/h;cam.updateProjectionMatrix();
+  const desiredX=p.x+(p.steer||0)*2+Math.sin(t*1.5)*.8;
+  const desiredY=8.5+Math.sin(t*1.2)*.5;
+  const desiredZ=-p.progress+17.5+Math.abs(p.steer)*1.8;
+  cam.position.x+=(desiredX-cam.position.x)*.08;
+  cam.position.y+=(desiredY-cam.position.y)*.08;
+  cam.position.z+=(desiredZ-cam.position.z)*.08;
+  cam.lookAt(p.x,1.3,-p.progress-18);
+  renderer.setViewport(0,0,w,h);renderer.setScissor(0,0,w,h);
+  renderer.render(scene,cam);
+ }
+ renderer.setScissorTest(false);
+}
+
+function updateHUD(){
+ $("hud").innerHTML=racers.map(p=>{
+  const pct=Math.floor(p.progress/raceLength*100);
+  const status=p.finished?"FINISHED":p.crashed>0?"RESPAWNING":Math.floor(p.speed*3.6)+" KM/H";
+  return `<div class="hudbox"><b>${escapeHTML(p.name)}</b><br>${status}<br>${pct}% · CP ${p.checkpointIndex}/3</div>`;
+ }).join("");
+}
+function escapeHTML(s){
+ return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+function showPodium(){
+ running=false;
+ $("touchControls").hidden=true;
+ const ranked=[...racers].sort((a,b)=>{
+  if(a.finished&&b.finished)return a.place-b.place;
+  if(a.finished)return -1;if(b.finished)return 1;
+  return b.progress-a.progress;
+ });
+ const row=$("podiumRow");row.innerHTML="";
+ const order=[ranked[1],ranked[0],ranked[2]].filter(Boolean);
+ order.forEach(p=>{
+  const rank=ranked.indexOf(p)+1;
+  const div=document.createElement("div");
+  div.className="place "+(rank===1?"first":rank===2?"second":"third");
+  const face=rank===1?"🏂🙌":rank===2?"🏂🙂":"🏂😞";
+  div.innerHTML=`<div class="racerEmoji">${face}</div>
+  <div class="placeName">${escapeHTML(p.name)}</div>
+  <div class="chair">${rank===1?"1ST":rank===2?"2ND":"3RD"}</div>`;
+  row.appendChild(div);
+ });
+ $("podium").style.display="flex";
+ $("message").textContent="";
+}
+
+function startGame(names){
+ $("menu").style.display="none";$("podium").style.display="none";
+ $("message").textContent="";
+ $("touchControls").hidden=!mobileDevice;
+ if(scene){
+  scene.traverse(o=>{if(o.geometry)o.geometry.dispose()});
+ }
+ particleObjects=[];
+ buildScene();
+ setupRacers(names);
+ setupRenderer();
+ clock=new THREE.Clock();
+ running=true;finishClock=0;
+ $("hud").style.display="flex";
+ animate();
+}
+
+function animate(){
+ if(!running)return;
+ requestAnimationFrame(animate);
+ const dt=Math.min(clock.getDelta(),.04);
+ const now=performance.now();
+ updateWorld(now);
+ racers.forEach(p=>updateRacer(p,dt));
+ updateParticles(dt);
+ updateHUD();
+ renderViews();
+ if(racers.every(p=>p.finished)){
+  finishClock+=dt;
+  if(finishClock>1.5)showPodium();
+ }
+}
+
+addEventListener("keydown",e=>{
+ keys[e.key]=true;keys[e.key.toLowerCase()]=true;
+ if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"," "].includes(e.key))e.preventDefault();
+});
+addEventListener("keyup",e=>{
+ keys[e.key]=false;keys[e.key.toLowerCase()]=false;
+});
+addEventListener("blur",()=>{
+ Object.keys(keys).forEach(key=>keys[key]=false);
+ document.querySelectorAll("#touchControls .pressed").forEach(button=>button.classList.remove("pressed"));
+});
+addEventListener("resize",()=>{
+ if(renderer)renderer.setSize(innerWidth,innerHeight);
+});
+})();
+</script>
+</body>
+</html>
